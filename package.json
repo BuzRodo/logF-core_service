@@ -1,0 +1,35 @@
+{
+  "name": "logf-core_service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node src/main.ts",
+    "lint": "tsc --noEmit",
+    "test": "echo \"No test infrastructure configured\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BuzRodo/logF-core_service.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/BuzRodo/logF-core_service/issues"
+  },
+  "homepage": "https://github.com/BuzRodo/logF-core_service#readme",
+  "dependencies": {
+    "@nestjs/common": "^11.1.24",
+    "@nestjs/core": "^11.1.24",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3"
+  }
+}
