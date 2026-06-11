@@ -40,3 +40,5 @@ coverage/
 
 # NestJS
 .nest/
+
+/generated/prisma

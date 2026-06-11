@@ -25,7 +25,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(new LoggingInterceptor());
 
   // ── CORS ──────────────────────────────────────────────────────────────────
-  const corsOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:5174';
+  const corsOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:5173,http://localhost:5174';
   app.enableCors({
     origin: corsOrigin.split(',').map((s) => s.trim()),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

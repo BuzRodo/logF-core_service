@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Unit {
+  GRAM
+  ML
+  UNIT
+}
+
+enum ProductType {
+  ELABORATED
+  RESALE
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
+  TRANSFER
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum UserRole {
+  cashier
+  supervisor
+  admin
+}
+
+// ─── Ingredientes ─────────────────────────────────────────────────────────────
+
+model Ingredient {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  unit        Unit
+  costPerUnit Int      // centavos por kg, litro o unidad
+  supplier    String?
+  active      Boolean  @default(true)
+  stockGrams  Int      @default(0) // stock actual (en la misma unidad que `unit`)
+  costHistory IngredientCostHistory[]
+  recipeItems RecipeItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model IngredientCostHistory {
+  id           String     @id @default(uuid())
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  oldCost      Int
+  newCost      Int
+  changedBy    String
+  changedAt    DateTime   @default(now())
+}
+
+// ─── Catálogo ─────────────────────────────────────────────────────────────────
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  sortOrder Int       @default(0)
+  active    Boolean   @default(true)
+  products  Product[]
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  sku         String      @unique
+  name        String
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  price       Int         // precio de venta en centavos
+  imageUrl    String?
+  type        ProductType @default(ELABORATED)
+  active      Boolean     @default(true)
+  recipeItems RecipeItem[]
+  saleItems   SaleItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model RecipeItem {
+  id           String     @id @default(uuid())
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  quantity     Int        // gramos / ml / unidades según unit del ingrediente
+
+  @@unique([productId, ingredientId])
+}
+
+// ─── Ventas ───────────────────────────────────────────────────────────────────
+
+model Sale {
+  id                String        @id @default(uuid())
+  invoiceNumber     String        @unique
+  items             SaleItem[]
+  subtotal          Int
+  globalDiscount    Int           @default(0)
+  tax               Int
+  total             Int
+  paymentMethod     PaymentMethod
+  cardTransactionId String?
+  authorizationCode String?
+  cashSessionId     String
+  cashSession       CashSession   @relation(fields: [cashSessionId], references: [id])
+  cashierId         String
+  cashier           User          @relation(fields: [cashierId], references: [id])
+  createdAt         DateTime      @default(now())
+}
+
+model SaleItem {
+  id          String  @id @default(uuid())
+  saleId      String
+  sale        Sale    @relation(fields: [saleId], references: [id])
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  productName String  // snapshot al momento de la venta
+  unitPrice   Int     // snapshot
+  quantity    Int
+  discount    Int     @default(0)
+  costAtSale  Int     // snapshot del costo calculado al vender
+}
+
+// ─── Caja ─────────────────────────────────────────────────────────────────────
+
+model CashSession {
+  id             String            @id @default(uuid())
+  registerId     String
+  openedBy       String
+  openedByUser   User              @relation("OpenedSessions", fields: [openedBy], references: [id])
+  openingAmount  Int
+  openedAt       DateTime          @default(now())
+  closedAt       DateTime?
+  closingAmount  Int?
+  status         CashSessionStatus @default(OPEN)
+  sales          Sale[]
+}
+
+// ─── Usuarios ─────────────────────────────────────────────────────────────────
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  passwordHash String
+  displayName  String
+  role         UserRole      @default(cashier)
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  sales        Sale[]
+  cashSessions CashSession[] @relation("OpenedSessions")
+}
