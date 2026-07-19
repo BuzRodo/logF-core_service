@@ -10,6 +10,18 @@ export class IngredientsService {
     return this.prisma.ingredient.findMany({ orderBy: { name: 'asc' } });
   }
 
+  /** Últimos cambios de costo de insumos (para el panel de análisis). */
+  recentCostChanges(days = 30, take = 6) {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    return this.prisma.ingredientCostHistory.findMany({
+      where: { changedAt: { gte: since } },
+      include: { ingredient: { select: { id: true, name: true, unit: true, supplier: true } } },
+      orderBy: { changedAt: 'desc' },
+      take,
+    });
+  }
+
   async findOne(id: string) {
     const ing = await this.prisma.ingredient.findUnique({
       where: { id },

@@ -31,10 +31,36 @@ enum CashSessionStatus {
   CLOSED
 }
 
+enum CashMovementType {
+  INGRESO
+  EGRESO
+}
+
 enum UserRole {
   cashier
   supervisor
   admin
+}
+
+enum VoucherType {
+  FACTURA_CONTADO
+  FACTURA_CREDITO
+  REMITO
+  BOLETA
+}
+
+enum PurchaseOrderStatus {
+  PENDIENTE
+  RECIBIDA
+  CANCELADA
+}
+
+enum SaleChannel {
+  LOCAL
+  DELIVERY
+  TELEFONICO
+  WEB
+  PEDIDOS_YA
 }
 
 // ─── Ingredientes ─────────────────────────────────────────────────────────────
@@ -49,8 +75,24 @@ model Ingredient {
   stockGrams  Int      @default(0) // stock actual (en la misma unidad que `unit`)
   costHistory IngredientCostHistory[]
   recipeItems RecipeItem[]
+  stockEntries StockEntry[]
+  orderItems  PurchaseOrderItem[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model StockEntry {
+  id                String     @id @default(uuid())
+  ingredientId      String
+  ingredient        Ingredient @relation(fields: [ingredientId], references: [id])
+  quantity          Int        // en la unidad del ingrediente (g / ml / unidades)
+  expiryDate        DateTime?  // fecha de caducidad del lote (opcional)
+  lineTotal         Int?       // importe pagado por el lote en centavos (si vino de factura)
+  note              String?
+  purchaseInvoiceId String?    // lote que vino con una factura de compra
+  purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
+  createdBy         String?
+  createdAt         DateTime   @default(now())
 }
 
 model IngredientCostHistory {
@@ -113,11 +155,60 @@ model Sale {
   paymentMethod     PaymentMethod
   cardTransactionId String?
   authorizationCode String?
+  channel           SaleChannel   @default(LOCAL)
+  channelRef        String?       // nro de factura/pedido del canal (la "pregunta")
+  customerId        String?
+  customer          Customer?     @relation(fields: [customerId], references: [id])
+  driverId          String?
+  driver            DeliveryDriver? @relation(fields: [driverId], references: [id])
   cashSessionId     String
   cashSession       CashSession   @relation(fields: [cashSessionId], references: [id])
   cashierId         String
   cashier           User          @relation(fields: [cashierId], references: [id])
+  voidedAt          DateTime?     // venta anulada: excluir de totales, stock ya devuelto
+  voidedBy          String?
   createdAt         DateTime      @default(now())
+  incomingCalls     IncomingCall[]
+}
+
+model Customer {
+  id            String        @id @default(uuid())
+  phone         String        @unique
+  name          String
+  address       String?
+  addressNotes  String?  // apto, esquina, referencias
+  active        Boolean       @default(true)
+  sales         Sale[]
+  incomingCalls IncomingCall[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+// ─── Caller ID / llamadas entrantes ────────────────────────────────────────────
+
+model IncomingCall {
+  id         String    @id @default(uuid())
+  phone      String    // normalizado: solo dígitos (sin espacios/guiones/+)
+  rawPhone   String?   // valor tal cual lo reportó el capturador, sin normalizar
+  receivedAt DateTime  @default(now())
+  customerId String?   // cliente matcheado por teléfono (si existe)
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  saleId     String?   // venta en la que terminó la llamada (si aplica)
+  sale       Sale?     @relation(fields: [saleId], references: [id])
+  createdAt  DateTime  @default(now())
+
+  @@index([receivedAt])
+  @@index([phone])
+}
+
+model DeliveryDriver {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  phone     String?
+  active    Boolean  @default(true)
+  sales     Sale[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model SaleItem {
@@ -146,6 +237,79 @@ model CashSession {
   closingAmount  Int?
   status         CashSessionStatus @default(OPEN)
   sales          Sale[]
+  movements      CashMovement[]
+}
+
+model CashMovement {
+  id            String           @id @default(uuid())
+  cashSessionId String
+  cashSession   CashSession      @relation(fields: [cashSessionId], references: [id])
+  type          CashMovementType
+  concept       String           // motivo: "cambio", "pago proveedor", etc.
+  amount        Int              // centavos, siempre positivo
+  createdBy     String?
+  createdAt     DateTime         @default(now())
+}
+
+// ─── Compras ──────────────────────────────────────────────────────────────────
+
+model Supplier {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  contactName String?
+  phone       String?
+  email       String?
+  active      Boolean  @default(true)
+  invoices    PurchaseInvoice[]
+  orders      PurchaseOrder[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PurchaseOrder {
+  id           String              @id @default(uuid())
+  code         String              @unique // OC-000001
+  supplierId   String
+  supplier     Supplier            @relation(fields: [supplierId], references: [id])
+  status       PurchaseOrderStatus @default(PENDIENTE)
+  expectedDate DateTime?           // fecha esperada de entrega
+  notes        String?
+  items        PurchaseOrderItem[]
+  invoice      PurchaseInvoice?    // factura que la cierra (RECIBIDA)
+  createdBy    String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model PurchaseOrderItem {
+  id           String        @id @default(uuid())
+  orderId      String
+  order        PurchaseOrder @relation(fields: [orderId], references: [id])
+  ingredientId String?       // insumo existente…
+  ingredient   Ingredient?   @relation(fields: [ingredientId], references: [id])
+  freeName     String?       // …o nombre libre (aún no cargado)
+  unit         Unit
+  quantity     Int           // en unidad base (g / ml / unidades)
+}
+
+model PurchaseInvoice {
+  id           String      @id @default(uuid())
+  supplierId   String
+  supplier     Supplier    @relation(fields: [supplierId], references: [id])
+  voucherType  VoucherType
+  series       String
+  number       String
+  deliveryDate DateTime
+  entryDate    DateTime
+  totalAmount  Int         // importe total en centavos
+  stockEntries StockEntry[]
+  purchaseOrderId String?  @unique // OC que esta factura cierra
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  createdBy    String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([supplierId, series, number])
 }
 
 // ─── Usuarios ─────────────────────────────────────────────────────────────────

@@ -40,6 +40,7 @@ async function bootstrap() {
       .setDescription('API del sistema de gestión LogFood — Módulo POS (Fiserv ITD)')
       .setVersion('0.1.0')
       .addBearerAuth()
+      .addApiKey({ type: 'apiKey', name: 'X-Agent-Key', in: 'header' }, 'agent-key')
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -22,6 +22,13 @@ export class IngredientsController {
     return this.svc.findAll();
   }
 
+  @Get('cost-changes')
+  @Roles('admin', 'supervisor')
+  @ApiOperation({ summary: 'Últimos cambios de costo de insumos (30 días)' })
+  costChanges() {
+    return this.svc.recentCostChanges();
+  }
+
   @Get(':id')
   @Roles('admin', 'supervisor')
   @ApiOperation({ summary: 'Obtener ingrediente con historial de costos' })

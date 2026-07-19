@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SalesService } from './sales.service';
-import { CreateSaleDto, SaleFilterDto } from './dto/sale.dto';
+import { CreateSaleDto, SaleFilterDto, SalesSummaryFilterDto, SalesByProductFilterDto, SalesByDriverFilterDto, VoidByInvoiceDto } from './dto/sale.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -28,10 +28,45 @@ export class SalesController {
     return this.svc.findAll(filters);
   }
 
+  @Get('summary')
+  @Roles('admin', 'supervisor')
+  @ApiOperation({ summary: 'Serie histórica de ventas por día/semana/mes/año (excluye anuladas)' })
+  summary(@Query() filters: SalesSummaryFilterDto) {
+    return this.svc.summary(filters);
+  }
+
+  @Get('by-product')
+  @Roles('admin', 'supervisor')
+  @ApiOperation({ summary: 'Ventas por producto agrupadas por categoría (excluye anuladas)' })
+  byProduct(@Query() filters: SalesByProductFilterDto) {
+    return this.svc.byProduct(filters);
+  }
+
+  @Get('by-driver')
+  @Roles('admin', 'supervisor')
+  @ApiOperation({ summary: 'Ventas agrupadas por repartidor (excluye anuladas)' })
+  byDriver(@Query() filters: SalesByDriverFilterDto) {
+    return this.svc.byDriver(filters);
+  }
+
   @Get(':id')
   @Roles('admin', 'supervisor', 'cashier')
   @ApiOperation({ summary: 'Obtener detalle de venta' })
   findOne(@Param('id') id: string) {
     return this.svc.findOne(id);
+  }
+
+  @Post('void-by-invoice')
+  @Roles('admin', 'supervisor', 'cashier')
+  @ApiOperation({ summary: 'Anular venta por número de ticket (devuelve stock según receta)' })
+  voidByInvoice(@Body() dto: VoidByInvoiceDto, @CurrentUser() user: JwtPayload) {
+    return this.svc.voidByInvoice(dto.invoiceNumber, user.sub);
+  }
+
+  @Post(':id/void')
+  @Roles('admin', 'supervisor')
+  @ApiOperation({ summary: 'Anular venta (devuelve stock según receta)' })
+  void(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.svc.void(id, user.sub);
   }
 }

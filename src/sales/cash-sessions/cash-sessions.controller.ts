@@ -21,6 +21,20 @@ export class CashSessionsController {
     return this.svc.findAll();
   }
 
+  @Get('active/:registerId')
+  @Roles('admin', 'supervisor', 'cashier')
+  @ApiOperation({ summary: 'Obtener la sesión abierta de una caja (null si no hay)' })
+  findActive(@Param('registerId') registerId: string) {
+    return this.svc.findActiveByRegister(registerId);
+  }
+
+  @Get(':id/summary')
+  @Roles('admin', 'supervisor', 'cashier')
+  @ApiOperation({ summary: 'Resumen de caja para arqueo (efectivo esperado)' })
+  summary(@Param('id') id: string) {
+    return this.svc.summary(id);
+  }
+
   @Get(':id')
   @Roles('admin', 'supervisor', 'cashier')
   @ApiOperation({ summary: 'Obtener sesión de caja' })

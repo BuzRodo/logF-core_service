@@ -5,6 +5,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { SalesRootModule } from './sales/sales.module';
+import { PurchasingModule } from './purchasing/purchasing.module';
+import { CustomersModule } from './customers/customers.module';
+import { DriversModule } from './drivers/drivers.module';
+import { CallsModule } from './calls/calls.module';
 import { envValidationSchema } from './config/env.validation';
 
 @Module({
@@ -19,6 +23,10 @@ import { envValidationSchema } from './config/env.validation';
     AuthModule,
     CatalogModule,
     SalesRootModule,
+    PurchasingModule,
+    CustomersModule,
+    DriversModule,
+    CallsModule,
     PosModule,
   ],
 })

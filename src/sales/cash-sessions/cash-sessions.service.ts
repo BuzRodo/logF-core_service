@@ -25,6 +25,7 @@ export class CashSessionsService {
   async findActiveByRegister(registerId: string) {
     return this.prisma.cashSession.findFirst({
       where: { registerId, status: 'OPEN' },
+      include: { openedByUser: { select: { id: true, displayName: true } } },
     });
   }
 
@@ -56,5 +57,35 @@ export class CashSessionsService {
         closingAmount: dto.closingAmount,
       },
     });
+  }
+
+  /** Resumen de sesión para el arqueo: efectivo esperado según apertura, ventas en efectivo y movimientos. */
+  async summary(id: string) {
+    const session = await this.findOne(id);
+
+    const [cashSalesAgg, movementsGrouped] = await Promise.all([
+      this.prisma.sale.aggregate({
+        where: { cashSessionId: id, paymentMethod: 'CASH', voidedAt: null },
+        _sum: { total: true },
+      }),
+      this.prisma.cashMovement.groupBy({
+        by: ['type'],
+        where: { cashSessionId: id },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const cashSales = cashSalesAgg._sum.total ?? 0;
+    const ingresos = movementsGrouped.find((m) => m.type === 'INGRESO')?._sum.amount ?? 0;
+    const egresos = movementsGrouped.find((m) => m.type === 'EGRESO')?._sum.amount ?? 0;
+    const expected = session.openingAmount + cashSales + ingresos - egresos;
+
+    return {
+      openingAmount: session.openingAmount,
+      cashSales,
+      ingresos,
+      egresos,
+      expected,
+    };
   }
 }
