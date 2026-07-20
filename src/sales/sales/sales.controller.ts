@@ -1,15 +1,22 @@
 import { Controller, Get, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiForbiddenResponse } from '@nestjs/swagger';
 import { SalesService } from './sales.service';
 import { CreateSaleDto, SaleFilterDto, SalesSummaryFilterDto, SalesByProductFilterDto, SalesByDriverFilterDto, VoidByInvoiceDto } from './dto/sale.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '../../auth/decorators/current-user.decorator';
+import { FeatureGuard } from '../../common/features/feature.guard';
+import { RequireFeature } from '../../common/features/require-feature.decorator';
 
+// Todo este controller ya vive detrás de FEATURE_POS (SalesModule solo se monta si
+// FEATURE_POS=true, ver app.module.ts). Los tres endpoints de reportes (summary/by-product/
+// by-driver) además exigen FEATURE_SALES_REPORTS a nivel de método con FeatureGuard, porque
+// comparten controller con la creación/anulación de ventas y no se pueden separar en un
+// módulo aparte sin duplicar SalesService.
 @ApiTags('Ventas')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, FeatureGuard)
 @Controller('api/sales')
 export class SalesController {
   constructor(private svc: SalesService) {}
@@ -30,6 +37,8 @@ export class SalesController {
 
   @Get('summary')
   @Roles('admin', 'supervisor')
+  @RequireFeature('salesReports')
+  @ApiForbiddenResponse({ description: 'FEATURE_SALES_REPORTS está deshabilitado por configuración' })
   @ApiOperation({ summary: 'Serie histórica de ventas por día/semana/mes/año (excluye anuladas)' })
   summary(@Query() filters: SalesSummaryFilterDto) {
     return this.svc.summary(filters);
@@ -37,6 +46,8 @@ export class SalesController {
 
   @Get('by-product')
   @Roles('admin', 'supervisor')
+  @RequireFeature('salesReports')
+  @ApiForbiddenResponse({ description: 'FEATURE_SALES_REPORTS está deshabilitado por configuración' })
   @ApiOperation({ summary: 'Ventas por producto agrupadas por categoría (excluye anuladas)' })
   byProduct(@Query() filters: SalesByProductFilterDto) {
     return this.svc.byProduct(filters);
@@ -44,6 +55,8 @@ export class SalesController {
 
   @Get('by-driver')
   @Roles('admin', 'supervisor')
+  @RequireFeature('salesReports')
+  @ApiForbiddenResponse({ description: 'FEATURE_SALES_REPORTS está deshabilitado por configuración' })
   @ApiOperation({ summary: 'Ventas agrupadas por repartidor (excluye anuladas)' })
   byDriver(@Query() filters: SalesByDriverFilterDto) {
     return this.svc.byDriver(filters);

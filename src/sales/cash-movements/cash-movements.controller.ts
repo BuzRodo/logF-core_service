@@ -1,15 +1,20 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiForbiddenResponse } from '@nestjs/swagger';
 import { CashMovementsService } from './cash-movements.service';
 import { CreateCashMovementDto, CashMovementFilterDto } from './dto/cash-movement.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '../../auth/decorators/current-user.decorator';
+import { FeatureGuard } from '../../common/features/feature.guard';
+import { RequireFeature } from '../../common/features/require-feature.decorator';
 
+// Mismo criterio que CashSessionsController: FeatureGuard en vez de desmontado (ver nota ahí).
 @ApiTags('Caja')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@ApiForbiddenResponse({ description: 'FEATURE_CASH está deshabilitado por configuración' })
+@UseGuards(JwtAuthGuard, RolesGuard, FeatureGuard)
+@RequireFeature('cash')
 @Controller('api/cash-movements')
 export class CashMovementsController {
   constructor(private svc: CashMovementsService) {}
