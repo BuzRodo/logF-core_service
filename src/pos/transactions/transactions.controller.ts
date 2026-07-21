@@ -34,11 +34,22 @@ import {
   SearchTransactionsDto,
 } from './transactions.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '../../auth/decorators/current-user.decorator';
 
+/**
+ * Criterio de roles (antes este controller no tenía @Roles — cualquier autenticado
+ * podía ejecutar cualquier operación con tarjeta, incluida una devolución de dinero):
+ * - purchase/query/confirm/cancel/ticket: flujo normal de cobro en caja → los 3 roles.
+ * - reverse/void/refund/search: deshacen una transacción ya asentada o exponen el
+ *   historial completo de transacciones (auditoría) → admin y supervisor, igual que
+ *   el criterio ya usado en SalesController para `void(:id)` vs `void-by-invoice`.
+ */
 @ApiTags('POS - Transacciones')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'supervisor', 'cashier')
 @Controller('api/pos/transactions')
 export class TransactionsController {
   private readonly logger = new Logger(TransactionsController.name);
@@ -76,28 +87,32 @@ export class TransactionsController {
 
   @Post('reverse')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reverso de transacción (processFinancialReverse)' })
+  @Roles('admin', 'supervisor')
+  @ApiOperation({ summary: 'Reverso de transacción (processFinancialReverse) — admin/supervisor' })
   reverseTransaction(@Body() dto: ReverseTransactionDto, @CurrentUser() user: JwtPayload) {
     return this.transactionsService.reverseTransaction(dto, user.sub);
   }
 
   @Post('void')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Anular por ticket (processFinancialPurchaseVoidByTicket)' })
+  @Roles('admin', 'supervisor')
+  @ApiOperation({ summary: 'Anular por ticket (processFinancialPurchaseVoidByTicket) — admin/supervisor' })
   voidByTicket(@Body() dto: VoidByTicketDto, @CurrentUser() user: JwtPayload) {
     return this.transactionsService.voidByTicket(dto, user.sub);
   }
 
   @Post('refund')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Devolución (processFinancialPurchaseRefund)' })
+  @Roles('admin', 'supervisor')
+  @ApiOperation({ summary: 'Devolución (processFinancialPurchaseRefund) — admin/supervisor' })
   refund(@Body() dto: RefundDto, @CurrentUser() user: JwtPayload) {
     return this.transactionsService.refund(dto, user.sub);
   }
 
   @Post('search')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Buscar transacciones (processQuery)' })
+  @Roles('admin', 'supervisor')
+  @ApiOperation({ summary: 'Buscar transacciones (processQuery) — admin/supervisor' })
   searchTransactions(@Body() dto: SearchTransactionsDto) {
     return this.transactionsService.searchTransactions(dto);
   }

@@ -5,6 +5,8 @@ import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { CurrentUser, JwtPayload } from '../../auth/decorators/current-user.decorator';
+import { filterCostFieldsForRole } from '../../common/utils/cost-visibility.util';
 
 @ApiTags('Productos')
 @ApiBearerAuth()
@@ -13,23 +15,27 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 export class ProductsController {
   constructor(private svc: ProductsService) {}
 
+  // Lectura: los 3 roles pueden ver el catálogo de gestión (productos + receta), pero
+  // costPerUnit/cost/margin viajan filtrados salvo para admin (ver cost-visibility.util).
   @Get()
-  @Roles('admin', 'supervisor')
-  @ApiOperation({ summary: 'Listar todos los productos (admin)' })
-  findAll() {
-    return this.svc.findAll();
+  @Roles('admin', 'supervisor', 'cashier')
+  @ApiOperation({ summary: 'Listar todos los productos' })
+  async findAll(@CurrentUser() user: JwtPayload) {
+    return filterCostFieldsForRole(await this.svc.findAll(), user.role);
   }
 
   @Get(':id')
-  @Roles('admin', 'supervisor')
+  @Roles('admin', 'supervisor', 'cashier')
   @ApiOperation({ summary: 'Obtener producto por id' })
-  findOne(@Param('id') id: string) {
-    return this.svc.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return filterCostFieldsForRole(await this.svc.findOne(id), user.role);
   }
 
+  // Desglose de costo/margen: es 100% información de costo → admin únicamente
+  // (a diferencia de findAll/findOne, acá no hay nada "no-costo" que preservar).
   @Get(':id/cost')
-  @Roles('admin', 'supervisor')
-  @ApiOperation({ summary: 'Desglose de costo, margen y receta del producto' })
+  @Roles('admin')
+  @ApiOperation({ summary: 'Desglose de costo, margen y receta del producto (solo admin)' })
   getCost(@Param('id') id: string) {
     return this.svc.getCostBreakdown(id);
   }

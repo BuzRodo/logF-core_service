@@ -7,6 +7,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { SalesRootModule } from './sales/sales.module';
 import { PurchasingModule } from './purchasing/purchasing.module';
 import { CustomersModule } from './customers/customers.module';
+import { UsersModule } from './users/users.module';
 import { DriversModule } from './drivers/drivers.module';
 import { CallsModule } from './calls/calls.module';
 import { FeaturesModule } from './common/features/features.module';
@@ -44,11 +45,13 @@ const features = readFeatureFlags();
     PrismaModule,
     AuthModule,
 
-    // ─── Gestión (v1): catálogo, proveedores, compras, facturas, stock ───────────
+    // ─── Gestión (v1): catálogo, proveedores, compras, facturas, stock, usuarios ─
     // Sin dependencias de código hacia customers/sales/pos/drivers/calls (verificado):
-    // siempre montado, funciona con todos los flags en false.
+    // siempre montado, funciona con todos los flags en false. UsersModule tampoco se
+    // gatea: la gestión de usuarios es v1, no una feature opcional.
     CatalogModule,
     PurchasingModule,
+    UsersModule,
 
     // GET /api/features (público) + FeatureGuard: siempre montado, no está gateado.
     FeaturesModule,

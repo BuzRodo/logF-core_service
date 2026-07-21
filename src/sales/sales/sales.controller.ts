@@ -8,12 +8,17 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '../../auth/decorators/current-user.decorator';
 import { FeatureGuard } from '../../common/features/feature.guard';
 import { RequireFeature } from '../../common/features/require-feature.decorator';
+import { filterCostFieldsForRole } from '../../common/utils/cost-visibility.util';
 
 // Todo este controller ya vive detrás de FEATURE_POS (SalesModule solo se monta si
 // FEATURE_POS=true, ver app.module.ts). Los tres endpoints de reportes (summary/by-product/
 // by-driver) además exigen FEATURE_SALES_REPORTS a nivel de método con FeatureGuard, porque
 // comparten controller con la creación/anulación de ventas y no se pueden separar en un
 // módulo aparte sin duplicar SalesService.
+//
+// create/findAll/findOne incluyen los SaleItem con `costAtSale` (costo de receta al
+// momento de la venta) → se filtra para supervisor y cashier con el mismo criterio de
+// costos que el resto del sistema (ver cost-visibility.util).
 @ApiTags('Ventas')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, FeatureGuard)
@@ -24,15 +29,15 @@ export class SalesController {
   @Post()
   @Roles('admin', 'supervisor', 'cashier')
   @ApiOperation({ summary: 'Registrar venta (totales calculados server-side)' })
-  create(@Body() dto: CreateSaleDto, @CurrentUser() user: JwtPayload) {
-    return this.svc.create(dto, user.sub);
+  async create(@Body() dto: CreateSaleDto, @CurrentUser() user: JwtPayload) {
+    return filterCostFieldsForRole(await this.svc.create(dto, user.sub), user.role);
   }
 
   @Get()
   @Roles('admin', 'supervisor')
   @ApiOperation({ summary: 'Listar ventas con filtros opcionales' })
-  findAll(@Query() filters: SaleFilterDto) {
-    return this.svc.findAll(filters);
+  async findAll(@Query() filters: SaleFilterDto, @CurrentUser() user: JwtPayload) {
+    return filterCostFieldsForRole(await this.svc.findAll(filters), user.role);
   }
 
   @Get('summary')
@@ -65,8 +70,8 @@ export class SalesController {
   @Get(':id')
   @Roles('admin', 'supervisor', 'cashier')
   @ApiOperation({ summary: 'Obtener detalle de venta' })
-  findOne(@Param('id') id: string) {
-    return this.svc.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return filterCostFieldsForRole(await this.svc.findOne(id), user.role);
   }
 
   @Post('void-by-invoice')

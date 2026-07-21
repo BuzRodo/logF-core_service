@@ -4,11 +4,18 @@
  * Llamar al abrir la caja para confirmar que el pinpad está online.
  */
 
-import { Controller, Post, HttpCode, HttpStatus, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Post, HttpCode, HttpStatus, Logger, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TransactionsService } from '../transactions/transactions.service';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
+// Hueco de seguridad cerrado: este endpoint no tenía NINGÚN guard (ni JWT), quedaba
+// abierto a cualquiera sin autenticar, que podía disparar el echoTest contra Fiserv ITD
+// a piacere. No requiere @Roles: cualquier usuario autenticado puede pedir el health
+// check del pinpad al abrir caja, sin importar su rol.
 @ApiTags('POS - Health')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('api/pos/health')
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);
