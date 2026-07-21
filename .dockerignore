@@ -1,0 +1,17 @@
+node_modules
+dist
+generated
+coverage
+test
+*.log
+npm-debug.log*
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+*.md
+.eslintrc.js
+.prettierrc
