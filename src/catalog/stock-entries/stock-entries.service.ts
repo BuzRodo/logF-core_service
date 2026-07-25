@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStockEntryDto, StockEntryFilterDto } from './dto/stock-entry.dto';
 
 const INGREDIENT_SELECT = { select: { id: true, name: true, unit: true } };
+const INVOICE_SELECT = { select: { id: true, series: true, number: true, voucherType: true } };
 
 @Injectable()
 export class StockEntriesService {
@@ -11,7 +12,7 @@ export class StockEntriesService {
   findAll(filters: StockEntryFilterDto = {}) {
     return this.prisma.stockEntry.findMany({
       where: { ...(filters.ingredientId && { ingredientId: filters.ingredientId }) },
-      include: { ingredient: INGREDIENT_SELECT },
+      include: { ingredient: INGREDIENT_SELECT, purchaseInvoice: INVOICE_SELECT },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -22,7 +23,7 @@ export class StockEntriesService {
     limit.setDate(limit.getDate() + days);
     return this.prisma.stockEntry.findMany({
       where: { expiryDate: { not: null, lte: limit } },
-      include: { ingredient: INGREDIENT_SELECT },
+      include: { ingredient: INGREDIENT_SELECT, purchaseInvoice: INVOICE_SELECT },
       orderBy: { expiryDate: 'asc' },
     });
   }
@@ -94,8 +95,20 @@ export class StockEntriesService {
 
   /** Elimina la entrada (carga errónea) y descuenta lo que había sumado. */
   async remove(id: string) {
-    const entry = await this.prisma.stockEntry.findUnique({ where: { id } });
+    const entry = await this.prisma.stockEntry.findUnique({
+      where: { id },
+      include: { purchaseInvoice: { select: { series: true, number: true } } },
+    });
     if (!entry) throw new NotFoundException('Entrada de stock no encontrada');
+
+    if (entry.purchaseInvoiceId) {
+      const label = entry.purchaseInvoice
+        ? `${entry.purchaseInvoice.series}-${entry.purchaseInvoice.number}`
+        : entry.purchaseInvoiceId;
+      throw new ConflictException(
+        `Este lote está vinculado a la factura ${label}; corregilo desde Facturas`,
+      );
+    }
 
     return this.prisma.$transaction(async (tx) => {
       await tx.stockEntry.delete({ where: { id } });

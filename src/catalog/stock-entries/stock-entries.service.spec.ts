@@ -154,7 +154,9 @@ describe('StockEntriesService', () => {
   describe('remove', () => {
     it('elimina el lote y descuenta lo que había sumado', async () => {
       const svc = buildService();
-      mockPrisma.stockEntry.findUnique.mockResolvedValue({ id: 'entry-1', ingredientId: 'ing-1', quantity: 5000 });
+      mockPrisma.stockEntry.findUnique.mockResolvedValue({
+        id: 'entry-1', ingredientId: 'ing-1', quantity: 5000, purchaseInvoiceId: null, purchaseInvoice: null,
+      });
       const txDelete = jest.fn();
       const txIngredientUpdate = jest.fn();
       mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
@@ -171,6 +173,28 @@ describe('StockEntriesService', () => {
         where: { id: 'ing-1' },
         data: { stockGrams: { decrement: 5000 } },
       });
+    });
+
+    it('rechaza con 409 si el lote está vinculado a una factura', async () => {
+      const svc = buildService();
+      mockPrisma.stockEntry.findUnique.mockResolvedValue({
+        id: 'entry-1',
+        ingredientId: 'ing-1',
+        quantity: 5000,
+        purchaseInvoiceId: 'inv-1',
+        purchaseInvoice: { series: 'A', number: '0003391' },
+      });
+
+      await expect(svc.remove('entry-1')).rejects.toThrow(ConflictException);
+      await expect(svc.remove('entry-1')).rejects.toThrow(/A-0003391/);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rechaza si la entrada no existe', async () => {
+      const svc = buildService();
+      mockPrisma.stockEntry.findUnique.mockResolvedValue(null);
+
+      await expect(svc.remove('entry-x')).rejects.toThrow(NotFoundException);
     });
   });
 

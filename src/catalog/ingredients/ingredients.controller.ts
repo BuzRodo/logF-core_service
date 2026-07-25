@@ -64,8 +64,12 @@ export class IngredientsController {
     return this.svc.update(id, dto, user.sub);
   }
 
+  // Eliminación física (no soft-delete): solo procede si no hay recetas, lotes de
+  // factura ni ítems de orden de compra que dependan del insumo — devuelve 409 con un
+  // mensaje accionable en caso contrario. Para desactivar (soft-delete) se usa el PATCH
+  // genérico de arriba con { active: false }, tal como lo hace la UI.
   @Delete(':id')
-  @ApiOperation({ summary: 'Desactivar ingrediente (soft-delete)' })
+  @ApiOperation({ summary: 'Eliminar ingrediente físicamente (falla con 409 si tiene datos históricos dependientes)' })
   remove(@Param('id') id: string) {
     return this.svc.remove(id);
   }
