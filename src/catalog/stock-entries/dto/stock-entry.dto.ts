@@ -1,7 +1,7 @@
 import { IsString, IsInt, IsOptional, IsUUID, IsDateString, IsEnum, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Unit } from '../../../../generated/prisma/client';
+import { Unit, IvaRate } from '../../../../generated/prisma/client';
 
 export class NewIngredientDto {
   @ApiProperty({ example: 'Papel higiénico' })
@@ -16,6 +16,11 @@ export class NewIngredientDto {
   @IsOptional()
   @IsString()
   supplier?: string;
+
+  @ApiPropertyOptional({ enum: IvaRate, example: IvaRate.IVA_22, description: 'Tasa de IVA declarada (dato; no afecta el costo)' })
+  @IsOptional()
+  @IsEnum(IvaRate)
+  ivaRate?: IvaRate;
 }
 
 export class CreateStockEntryDto {

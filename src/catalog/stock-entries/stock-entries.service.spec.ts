@@ -107,6 +107,7 @@ describe('StockEntriesService', () => {
           name: 'Papel higiénico',
           unit: 'UNIT',
           supplier: 'Distribuidora Sur',
+          ivaRate: null,
           costPerUnit: 0,
           stockGrams: 0,
         },
@@ -120,6 +121,52 @@ describe('StockEntriesService', () => {
         where: { id: 'ing-new' },
         data: { stockGrams: { increment: 24 } },
       });
+    });
+
+    it('newIngredient con ivaRate: lo asigna al insumo nuevo y lo snapshotea en el lote', async () => {
+      const svc = buildService();
+      mockPrisma.ingredient.findFirst.mockResolvedValue(null);
+      const txIngredientCreate = jest.fn().mockResolvedValue({ id: 'ing-new', ivaRate: 'IVA_22' });
+      const txEntryCreate = jest.fn().mockResolvedValue({ id: 'entry-1' });
+      const txIngredientUpdate = jest.fn();
+      mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
+        fn({
+          ingredient: { create: txIngredientCreate, update: txIngredientUpdate },
+          stockEntry: { create: txEntryCreate },
+        }),
+      );
+
+      const dto = {
+        newIngredient: { name: 'Detergente', unit: 'UNIT', ivaRate: 'IVA_22' },
+        quantity: 10,
+      };
+      await svc.create(dto as any, 'user-1');
+
+      expect(txIngredientCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ivaRate: 'IVA_22' }) }),
+      );
+      expect(txEntryCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ivaRate: 'IVA_22' }) }),
+      );
+    });
+
+    it('ingredientId existente: snapshotea el ivaRate del insumo en el lote', async () => {
+      const svc = buildService();
+      mockPrisma.ingredient.findUnique.mockResolvedValue({ ...mockIngredient, ivaRate: 'IVA_10' });
+      const txEntryCreate = jest.fn().mockResolvedValue({ id: 'entry-1' });
+      const txIngredientUpdate = jest.fn();
+      mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
+        fn({
+          ingredient: { update: txIngredientUpdate },
+          stockEntry: { create: txEntryCreate },
+        }),
+      );
+
+      await svc.create(validDto, 'user-1');
+
+      expect(txEntryCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ivaRate: 'IVA_10' }) }),
+      );
     });
 
     it('rechaza newIngredient si ya existe un insumo con ese nombre', async () => {

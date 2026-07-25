@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { IvaRate } from '../../../generated/prisma/client';
 import { CreateStockEntryDto, StockEntryFilterDto } from './dto/stock-entry.dto';
 
 const INGREDIENT_SELECT = { select: { id: true, name: true, unit: true } };
@@ -45,6 +46,7 @@ export class StockEntriesService {
       );
     }
 
+    let existingIvaRate: IvaRate | null = null;
     if (dto.newIngredient) {
       const collision = await this.prisma.ingredient.findFirst({
         where: { name: dto.newIngredient.name.trim() },
@@ -58,28 +60,37 @@ export class StockEntriesService {
       const ingredient = await this.prisma.ingredient.findUnique({ where: { id: dto.ingredientId } });
       if (!ingredient) throw new NotFoundException('Ingrediente no encontrado');
       if (!ingredient.active) throw new BadRequestException('El ingrediente está inactivo');
+      existingIvaRate = ingredient.ivaRate;
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const ingredientId = dto.newIngredient
-        ? (
-            await tx.ingredient.create({
-              data: {
-                name: dto.newIngredient.name.trim(),
-                unit: dto.newIngredient.unit,
-                supplier: dto.newIngredient.supplier?.trim() || undefined,
-                costPerUnit: 0, // sin dato de costo en este flujo; se completa después en Insumos
-                stockGrams: 0, // el lote de abajo lo incrementa
-              },
-            })
-          ).id
-        : dto.ingredientId!;
+      let ingredientId: string;
+      let ivaRate: IvaRate | null;
+
+      if (dto.newIngredient) {
+        const created = await tx.ingredient.create({
+          data: {
+            name: dto.newIngredient.name.trim(),
+            unit: dto.newIngredient.unit,
+            supplier: dto.newIngredient.supplier?.trim() || undefined,
+            ivaRate: dto.newIngredient.ivaRate ?? null,
+            costPerUnit: 0, // sin dato de costo en este flujo; se completa después en Insumos
+            stockGrams: 0, // el lote de abajo lo incrementa
+          },
+        });
+        ingredientId = created.id;
+        ivaRate = created.ivaRate;
+      } else {
+        ingredientId = dto.ingredientId!;
+        ivaRate = existingIvaRate;
+      }
 
       const entry = await tx.stockEntry.create({
         data: {
           ingredientId,
           quantity: dto.quantity,
           expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
+          ivaRate,
           note: dto.note,
           createdBy,
         },

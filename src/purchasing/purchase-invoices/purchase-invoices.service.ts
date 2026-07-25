@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Unit } from '../../../generated/prisma/client';
+import { Unit, IvaRate } from '../../../generated/prisma/client';
 import {
   CreatePurchaseInvoiceDto,
   UpdatePurchaseInvoiceDto,
@@ -157,6 +157,7 @@ export class PurchaseInvoicesService {
 
       for (const item of items) {
         let ingredientId: string;
+        let entryIvaRate: IvaRate | null;
 
         if (item.newIngredient) {
           // Alta del ingrediente con el costo derivado de la factura
@@ -165,11 +166,13 @@ export class PurchaseInvoicesService {
               name: item.newIngredient.name.trim(),
               unit: item.newIngredient.unit,
               costPerUnit: unitCostFromLine(item.newIngredient.unit, item.quantity, item.lineTotal!),
+              ivaRate: item.ivaRate ?? null,
               supplier: supplier.name,
               stockGrams: 0, // el lote de abajo lo incrementa
             },
           });
           ingredientId = created.id;
+          entryIvaRate = created.ivaRate;
         } else {
           ingredientId = item.ingredientId!;
           const ing = byId.get(ingredientId)!;
@@ -183,6 +186,8 @@ export class PurchaseInvoicesService {
               await tx.ingredient.update({ where: { id: ingredientId }, data: { costPerUnit: newCost } });
             }
           }
+          // Snapshot de la línea: el ivaRate del ítem si vino, si no el del insumo, si no null
+          entryIvaRate = item.ivaRate ?? ing.ivaRate ?? null;
         }
 
         await tx.stockEntry.create({
@@ -191,6 +196,7 @@ export class PurchaseInvoicesService {
             quantity: item.quantity,
             expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
             lineTotal: item.lineTotal ?? null,
+            ivaRate: entryIvaRate,
             note: `Factura ${dto.series}-${dto.number}`,
             purchaseInvoiceId: invoice.id,
             createdBy,
