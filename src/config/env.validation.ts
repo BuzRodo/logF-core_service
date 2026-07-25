@@ -11,6 +11,9 @@ const featureFlagsSchema = {
   FEATURE_CALLS: Joi.boolean().default(false),
   FEATURE_CUSTOMERS: Joi.boolean().default(false),
   FEATURE_SALES_REPORTS: Joi.boolean().default(false),
+  // Gastronómico opcional: recetas, costo por plato, margen. Sin dependencias con los
+  // demás flags (catalog/products no importa nada de sales/pos/customers/calls).
+  FEATURE_RECIPES: Joi.boolean().default(false),
 };
 
 /**

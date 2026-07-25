@@ -23,6 +23,7 @@ export interface FeatureFlags {
   calls: boolean;
   customers: boolean;
   salesReports: boolean;
+  recipes: boolean;
 }
 
 const parseBool = (value: string | undefined): boolean => value === 'true';
@@ -34,5 +35,6 @@ export function readFeatureFlags(env: NodeJS.ProcessEnv = process.env): FeatureF
     calls: parseBool(env.FEATURE_CALLS),
     customers: parseBool(env.FEATURE_CUSTOMERS),
     salesReports: parseBool(env.FEATURE_SALES_REPORTS),
+    recipes: parseBool(env.FEATURE_RECIPES),
   };
 }

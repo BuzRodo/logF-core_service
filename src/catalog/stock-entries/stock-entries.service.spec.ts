@@ -1,4 +1,4 @@
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { StockEntriesService } from './stock-entries.service';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -8,6 +8,8 @@ const mockIngredient = { id: 'ing-1', name: 'Carne vacuna picada', active: true 
 const mockPrisma = {
   ingredient: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
     update: jest.fn(),
   },
   stockEntry: {
@@ -78,6 +80,74 @@ describe('StockEntriesService', () => {
       mockPrisma.ingredient.findUnique.mockResolvedValue({ ...mockIngredient, active: false });
 
       await expect(svc.create(validDto, 'user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('crea el insumo nuevo y el lote en la misma transacción cuando viene newIngredient', async () => {
+      const svc = buildService();
+      mockPrisma.ingredient.findFirst.mockResolvedValue(null);
+      const txIngredientCreate = jest.fn().mockResolvedValue({ id: 'ing-new' });
+      const txEntryCreate = jest.fn().mockResolvedValue({ id: 'entry-1' });
+      const txIngredientUpdate = jest.fn();
+      mockPrisma.$transaction.mockImplementation(async (fn: Function) =>
+        fn({
+          ingredient: { create: txIngredientCreate, update: txIngredientUpdate },
+          stockEntry: { create: txEntryCreate },
+        }),
+      );
+
+      const dto = {
+        newIngredient: { name: 'Papel higiénico', unit: 'UNIT', supplier: 'Distribuidora Sur' },
+        quantity: 24,
+      };
+      await svc.create(dto as any, 'user-1');
+
+      expect(mockPrisma.ingredient.findUnique).not.toHaveBeenCalled();
+      expect(txIngredientCreate).toHaveBeenCalledWith({
+        data: {
+          name: 'Papel higiénico',
+          unit: 'UNIT',
+          supplier: 'Distribuidora Sur',
+          costPerUnit: 0,
+          stockGrams: 0,
+        },
+      });
+      expect(txEntryCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ ingredientId: 'ing-new', quantity: 24, createdBy: 'user-1' }),
+        }),
+      );
+      expect(txIngredientUpdate).toHaveBeenCalledWith({
+        where: { id: 'ing-new' },
+        data: { stockGrams: { increment: 24 } },
+      });
+    });
+
+    it('rechaza newIngredient si ya existe un insumo con ese nombre', async () => {
+      const svc = buildService();
+      mockPrisma.ingredient.findFirst.mockResolvedValue({ id: 'ing-9', name: 'Papel higiénico' });
+
+      const dto = { newIngredient: { name: 'Papel higiénico', unit: 'UNIT' }, quantity: 24 };
+      await expect(svc.create(dto as any, 'user-1')).rejects.toThrow(ConflictException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rechaza si vienen ingredientId y newIngredient a la vez', async () => {
+      const svc = buildService();
+      const dto = {
+        ingredientId: 'ing-1',
+        newIngredient: { name: 'Papel higiénico', unit: 'UNIT' },
+        quantity: 24,
+      };
+      await expect(svc.create(dto as any, 'user-1')).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.ingredient.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rechaza si no viene ni ingredientId ni newIngredient', async () => {
+      const svc = buildService();
+      const dto = { quantity: 24 };
+      await expect(svc.create(dto as any, 'user-1')).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

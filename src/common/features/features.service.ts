@@ -19,6 +19,7 @@ export class FeaturesService implements FeatureFlags {
   readonly calls: boolean;
   readonly customers: boolean;
   readonly salesReports: boolean;
+  readonly recipes: boolean;
 
   constructor(private readonly config: ConfigService) {
     this.pos = this.readFlag('FEATURE_POS');
@@ -26,6 +27,7 @@ export class FeaturesService implements FeatureFlags {
     this.calls = this.readFlag('FEATURE_CALLS');
     this.customers = this.readFlag('FEATURE_CUSTOMERS');
     this.salesReports = this.readFlag('FEATURE_SALES_REPORTS');
+    this.recipes = this.readFlag('FEATURE_RECIPES');
   }
 
   private readFlag(key: string): boolean {
@@ -44,6 +46,7 @@ export class FeaturesService implements FeatureFlags {
       calls: this.calls,
       customers: this.customers,
       salesReports: this.salesReports,
+      recipes: this.recipes,
     };
   }
 }
