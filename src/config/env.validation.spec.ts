@@ -92,7 +92,19 @@ describe('envValidationSchema — feature flags', () => {
       FEATURE_CALLS: 'true',
       FEATURE_CUSTOMERS: 'true',
       FEATURE_SALES_REPORTS: 'true',
+      FEATURE_RECIPES: 'true',
     });
+    expect(error).toBeUndefined();
+  });
+
+  it('FEATURE_RECIPES por default queda en false y no tiene dependencias con otros flags', () => {
+    const { error, value } = validate();
+    expect(error).toBeUndefined();
+    expect(value.FEATURE_RECIPES).toBe(false);
+  });
+
+  it('acepta FEATURE_RECIPES=true sin ningún otro flag encendido', () => {
+    const { error } = validate({ FEATURE_RECIPES: 'true' });
     expect(error).toBeUndefined();
   });
 });

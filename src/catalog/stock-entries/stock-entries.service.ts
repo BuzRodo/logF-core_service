@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStockEntryDto, StockEntryFilterDto } from './dto/stock-entry.dto';
 
@@ -27,16 +27,56 @@ export class StockEntriesService {
     });
   }
 
-  /** Registra la entrada y suma el stock del ingrediente en la misma transacción. */
+  /**
+   * Registra la entrada y suma el stock del ingrediente en la misma transacción.
+   *
+   * Acepta un ingrediente existente (`ingredientId`) o el alta de uno nuevo al vuelo
+   * (`newIngredient`) — exactamente uno de los dos (mismo criterio que
+   * `PurchaseInvoicesService.create`, ver ese servicio para el patrón replicado). Con
+   * `newIngredient`, el ingrediente se crea con stock 0 y el lote de abajo lo incrementa.
+   */
   async create(dto: CreateStockEntryDto, createdBy: string) {
-    const ingredient = await this.prisma.ingredient.findUnique({ where: { id: dto.ingredientId } });
-    if (!ingredient) throw new NotFoundException('Ingrediente no encontrado');
-    if (!ingredient.active) throw new BadRequestException('El ingrediente está inactivo');
+    const hasExisting = !!dto.ingredientId;
+    const hasNew = !!dto.newIngredient;
+    if (hasExisting === hasNew) {
+      throw new BadRequestException(
+        'Indicá un insumo existente (ingredientId) o los datos de uno nuevo (newIngredient), no ambos ni ninguno',
+      );
+    }
+
+    if (dto.newIngredient) {
+      const collision = await this.prisma.ingredient.findFirst({
+        where: { name: dto.newIngredient.name.trim() },
+      });
+      if (collision) {
+        throw new ConflictException(
+          `Ya existe un insumo con ese nombre: ${collision.name}. Seleccionalo de la lista.`,
+        );
+      }
+    } else {
+      const ingredient = await this.prisma.ingredient.findUnique({ where: { id: dto.ingredientId } });
+      if (!ingredient) throw new NotFoundException('Ingrediente no encontrado');
+      if (!ingredient.active) throw new BadRequestException('El ingrediente está inactivo');
+    }
 
     return this.prisma.$transaction(async (tx) => {
+      const ingredientId = dto.newIngredient
+        ? (
+            await tx.ingredient.create({
+              data: {
+                name: dto.newIngredient.name.trim(),
+                unit: dto.newIngredient.unit,
+                supplier: dto.newIngredient.supplier?.trim() || undefined,
+                costPerUnit: 0, // sin dato de costo en este flujo; se completa después en Insumos
+                stockGrams: 0, // el lote de abajo lo incrementa
+              },
+            })
+          ).id
+        : dto.ingredientId!;
+
       const entry = await tx.stockEntry.create({
         data: {
-          ingredientId: dto.ingredientId,
+          ingredientId,
           quantity: dto.quantity,
           expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
           note: dto.note,
@@ -45,7 +85,7 @@ export class StockEntriesService {
         include: { ingredient: INGREDIENT_SELECT },
       });
       await tx.ingredient.update({
-        where: { id: dto.ingredientId },
+        where: { id: ingredientId },
         data: { stockGrams: { increment: dto.quantity } },
       });
       return entry;

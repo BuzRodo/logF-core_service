@@ -1,11 +1,34 @@
-import { IsString, IsInt, IsOptional, IsUUID, IsDateString, Min } from 'class-validator';
+import { IsString, IsInt, IsOptional, IsUUID, IsDateString, IsEnum, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Unit } from '../../../../generated/prisma/client';
+
+export class NewIngredientDto {
+  @ApiProperty({ example: 'Papel higiénico' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ enum: Unit, example: Unit.UNIT })
+  @IsEnum(Unit)
+  unit: Unit;
+
+  @ApiPropertyOptional({ example: 'Distribuidora Sur' })
+  @IsOptional()
+  @IsString()
+  supplier?: string;
+}
 
 export class CreateStockEntryDto {
-  @ApiProperty({ description: 'ID del ingrediente' })
+  @ApiPropertyOptional({ description: 'ID de un ingrediente ya existente' })
+  @IsOptional()
   @IsUUID()
-  ingredientId: string;
+  ingredientId?: string;
+
+  @ApiPropertyOptional({ type: NewIngredientDto, description: 'Alta de insumo nuevo desde el ingreso de stock' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => NewIngredientDto)
+  newIngredient?: NewIngredientDto;
 
   @ApiProperty({ example: 5000, description: 'Cantidad en la unidad del ingrediente (g / ml / unidades)' })
   @IsInt()

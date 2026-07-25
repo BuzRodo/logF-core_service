@@ -8,6 +8,7 @@ describe('readFeatureFlags', () => {
       calls: false,
       customers: false,
       salesReports: false,
+      recipes: false,
     });
   });
 
@@ -26,6 +27,7 @@ describe('readFeatureFlags', () => {
       calls: false,
       customers: false,
       salesReports: false,
+      recipes: false,
     });
   });
 
@@ -48,6 +50,7 @@ describe('readFeatureFlags', () => {
         FEATURE_CALLS: 'true',
         FEATURE_CUSTOMERS: 'true',
         FEATURE_SALES_REPORTS: 'true',
+        FEATURE_RECIPES: 'true',
       }),
     ).toEqual({
       pos: true,
@@ -55,6 +58,7 @@ describe('readFeatureFlags', () => {
       calls: true,
       customers: true,
       salesReports: true,
+      recipes: true,
     });
   });
 });

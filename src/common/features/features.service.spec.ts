@@ -14,6 +14,7 @@ describe('FeaturesService', () => {
       calls: false,
       customers: false,
       salesReports: false,
+      recipes: false,
     });
   });
 
@@ -25,6 +26,7 @@ describe('FeaturesService', () => {
         FEATURE_CALLS: 'false',
         FEATURE_CUSTOMERS: 'true',
         FEATURE_SALES_REPORTS: 'yes', // valor inválido → se trata como false
+        FEATURE_RECIPES: 'true',
       }),
     );
 
@@ -33,6 +35,7 @@ describe('FeaturesService', () => {
     expect(svc.calls).toBe(false);
     expect(svc.customers).toBe(true);
     expect(svc.salesReports).toBe(false);
+    expect(svc.recipes).toBe(true);
   });
 
   it('isEnabled(feature) refleja el mismo valor que la propiedad correspondiente', () => {
@@ -41,10 +44,10 @@ describe('FeaturesService', () => {
     expect(svc.isEnabled('cash')).toBe(false);
   });
 
-  it('toPublicDto() devuelve solo los 5 booleanos (nada más)', () => {
+  it('toPublicDto() devuelve solo los 6 booleanos (nada más)', () => {
     const svc = new FeaturesService(buildConfig({ FEATURE_POS: 'true' }));
     expect(Object.keys(svc.toPublicDto()).sort()).toEqual(
-      ['calls', 'cash', 'customers', 'pos', 'salesReports'].sort(),
+      ['calls', 'cash', 'customers', 'pos', 'recipes', 'salesReports'].sort(),
     );
   });
 });

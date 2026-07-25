@@ -1,16 +1,21 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiForbiddenResponse } from '@nestjs/swagger';
 import { IngredientsService } from './ingredients.service';
 import { CreateIngredientDto, UpdateIngredientDto } from './dto/ingredient.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '../../auth/decorators/current-user.decorator';
+import { FeatureGuard } from '../../common/features/feature.guard';
+import { RequireFeature } from '../../common/features/require-feature.decorator';
 import { filterCostFieldsForRole } from '../../common/utils/cost-visibility.util';
 
+// CRUD de ingredientes/insumos: siempre disponible (no depende de FEATURE_RECIPES, es
+// gestión de catálogo/stock). Solo GET /cost-changes (historial de costos, insumo de
+// "Análisis de costos" gastronómico) exige FEATURE_RECIPES a nivel de método.
 @ApiTags('Ingredientes')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, FeatureGuard)
 @Roles('admin')
 @Controller('api/ingredients')
 export class IngredientsController {
@@ -26,8 +31,11 @@ export class IngredientsController {
   }
 
   // Historial de cambios de costo: es 100% información de costo → admin únicamente.
+  // Requiere FEATURE_RECIPES (gastronómico opcional): sin el flag responde 403.
   @Get('cost-changes')
   @Roles('admin')
+  @RequireFeature('recipes')
+  @ApiForbiddenResponse({ description: 'FEATURE_RECIPES está deshabilitado por configuración' })
   @ApiOperation({ summary: 'Últimos cambios de costo de insumos (30 días, solo admin)' })
   costChanges() {
     return this.svc.recentCostChanges();
