@@ -40,8 +40,11 @@ export class SuppliersController {
     return this.svc.update(id, dto);
   }
 
+  // Eliminación física (no soft-delete): solo procede si no tiene facturas ni órdenes
+  // de compra dependientes — devuelve 409 con un mensaje accionable en caso contrario.
+  // Para desactivar (soft-delete) se usa el PATCH genérico de arriba con { active: false }.
   @Delete(':id')
-  @ApiOperation({ summary: 'Desactivar proveedor (soft-delete)' })
+  @ApiOperation({ summary: 'Eliminar proveedor físicamente (falla con 409 si tiene facturas u órdenes dependientes)' })
   remove(@Param('id') id: string) {
     return this.svc.remove(id);
   }
