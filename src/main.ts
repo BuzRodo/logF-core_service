@@ -36,8 +36,8 @@ async function bootstrap() {
   // ── Swagger ───────────────────────────────────────────────────────────────
   if (process.env.NODE_ENV !== 'production') {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('LogFood Core Service')
-      .setDescription('API del sistema de gestión LogFood — Módulo POS (Fiserv ITD)')
+      .setTitle('Gestium Core Service')
+      .setDescription('API del sistema de gestión Gestium — Módulo POS (Fiserv ITD)')
       .setVersion('0.1.0')
       .addBearerAuth()
       .addApiKey({ type: 'apiKey', name: 'X-Agent-Key', in: 'header' }, 'agent-key')
