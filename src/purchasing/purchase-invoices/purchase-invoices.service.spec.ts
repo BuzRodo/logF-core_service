@@ -193,6 +193,93 @@ describe('PurchaseInvoicesService', () => {
       });
     });
 
+    it('ítem con ivaRate: guarda el snapshot en el lote (no toca el costo)', async () => {
+      const svc = buildService();
+      mockPrisma.supplier.findUnique.mockResolvedValue(mockSupplier);
+      mockPrisma.purchaseInvoice.findUnique.mockResolvedValue(null);
+      mockPrisma.ingredient.findMany.mockResolvedValue([
+        { id: 'ing-1', unit: 'GRAM', costPerUnit: 80000, ivaRate: 'EXENTO' },
+      ]);
+
+      await svc.create(
+        {
+          ...validDto,
+          items: [{ ingredientId: 'ing-1', quantity: 2000, ivaRate: 'IVA_22' as any }],
+        },
+        'user-1',
+      );
+
+      expect(tx.stockEntry.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ivaRate: 'IVA_22' }) }),
+      );
+    });
+
+    it('ítem sin ivaRate propio: hereda el del insumo existente como snapshot del lote', async () => {
+      const svc = buildService();
+      mockPrisma.supplier.findUnique.mockResolvedValue(mockSupplier);
+      mockPrisma.purchaseInvoice.findUnique.mockResolvedValue(null);
+      mockPrisma.ingredient.findMany.mockResolvedValue([
+        { id: 'ing-1', unit: 'GRAM', costPerUnit: 80000, ivaRate: 'IVA_10' },
+      ]);
+
+      await svc.create(
+        { ...validDto, items: [{ ingredientId: 'ing-1', quantity: 2000 }] },
+        'user-1',
+      );
+
+      expect(tx.stockEntry.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ivaRate: 'IVA_10' }) }),
+      );
+    });
+
+    it('ítem sin ivaRate propio y sin dato en el insumo: snapshot queda en null', async () => {
+      const svc = buildService();
+      mockPrisma.supplier.findUnique.mockResolvedValue(mockSupplier);
+      mockPrisma.purchaseInvoice.findUnique.mockResolvedValue(null);
+      mockPrisma.ingredient.findMany.mockResolvedValue([
+        { id: 'ing-1', unit: 'GRAM', costPerUnit: 80000, ivaRate: null },
+      ]);
+
+      await svc.create(
+        { ...validDto, items: [{ ingredientId: 'ing-1', quantity: 2000 }] },
+        'user-1',
+      );
+
+      expect(tx.stockEntry.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ivaRate: null }) }),
+      );
+    });
+
+    it('ítem nuevo con ivaRate: lo asigna al ingrediente y al lote', async () => {
+      const svc = buildService();
+      mockPrisma.supplier.findUnique.mockResolvedValue(mockSupplier);
+      mockPrisma.purchaseInvoice.findUnique.mockResolvedValue(null);
+      mockPrisma.ingredient.findMany.mockResolvedValue([]);
+      tx.ingredient.create.mockResolvedValue({ id: 'ing-new', ivaRate: 'IVA_10' });
+
+      await svc.create(
+        {
+          ...validDto,
+          items: [
+            {
+              newIngredient: { name: 'Yerba', unit: 'GRAM' as any },
+              quantity: 1000,
+              lineTotal: 50000,
+              ivaRate: 'IVA_10' as any,
+            },
+          ],
+        },
+        'user-1',
+      );
+
+      expect(tx.ingredient.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ivaRate: 'IVA_10' }) }),
+      );
+      expect(tx.stockEntry.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ ivaRate: 'IVA_10' }) }),
+      );
+    });
+
     it('rechaza ítem nuevo sin importe de línea', async () => {
       const svc = buildService();
       mockPrisma.supplier.findUnique.mockResolvedValue(mockSupplier);

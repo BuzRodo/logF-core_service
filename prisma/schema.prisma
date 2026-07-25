@@ -15,6 +15,12 @@ enum Unit {
   UNIT
 }
 
+enum IvaRate {
+  EXENTO
+  IVA_10
+  IVA_22
+}
+
 enum ProductType {
   ELABORATED
   RESALE
@@ -70,6 +76,7 @@ model Ingredient {
   name        String   @unique
   unit        Unit
   costPerUnit Int      // centavos por kg, litro o unidad
+  ivaRate     IvaRate? // tasa de IVA declarada para el insumo (dato; no afecta el costo)
   supplier    String?
   active      Boolean  @default(true)
   stockGrams  Int      @default(0) // stock actual (en la misma unidad que `unit`)
@@ -88,6 +95,7 @@ model StockEntry {
   quantity          Int        // en la unidad del ingrediente (g / ml / unidades)
   expiryDate        DateTime?  // fecha de caducidad del lote (opcional)
   lineTotal         Int?       // importe pagado por el lote en centavos (si vino de factura)
+  ivaRate           IvaRate?   // snapshot de la tasa de IVA de la línea (dato; no afecta el costo)
   note              String?
   purchaseInvoiceId String?    // lote que vino con una factura de compra
   purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])

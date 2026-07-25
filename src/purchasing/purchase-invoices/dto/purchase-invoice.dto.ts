@@ -3,7 +3,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType, OmitType } from '@nestjs/swagger';
-import { VoucherType, Unit } from '../../../../generated/prisma/client';
+import { VoucherType, Unit, IvaRate } from '../../../../generated/prisma/client';
 
 export class NewIngredientDto {
   @ApiProperty({ example: 'Carne vacuna picada' })
@@ -40,6 +40,11 @@ export class PurchaseInvoiceItemDto {
   @IsInt()
   @Min(1)
   lineTotal?: number;
+
+  @ApiPropertyOptional({ enum: IvaRate, example: IvaRate.IVA_22, description: 'Tasa de IVA de la línea (dato; no afecta el costo)' })
+  @IsOptional()
+  @IsEnum(IvaRate)
+  ivaRate?: IvaRate;
 
   @ApiPropertyOptional({ example: '2026-08-15', description: 'Fecha de caducidad del lote' })
   @IsOptional()

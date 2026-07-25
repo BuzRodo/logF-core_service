@@ -1,6 +1,6 @@
 import { IsString, IsInt, IsOptional, IsBoolean, IsEnum, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Unit } from '../../../../generated/prisma/client';
+import { Unit, IvaRate } from '../../../../generated/prisma/client';
 
 export class CreateIngredientDto {
   @ApiProperty({ example: 'Carne vacuna picada' })
@@ -15,6 +15,11 @@ export class CreateIngredientDto {
   @IsInt()
   @Min(0)
   costPerUnit: number;
+
+  @ApiPropertyOptional({ enum: IvaRate, example: IvaRate.IVA_22, description: 'Tasa de IVA declarada (dato; no afecta el costo)' })
+  @IsOptional()
+  @IsEnum(IvaRate)
+  ivaRate?: IvaRate;
 
   @ApiPropertyOptional({ example: 'Frigorífico Sur' })
   @IsOptional()
