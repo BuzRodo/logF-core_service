@@ -4,6 +4,7 @@ import { envValidationSchema } from './env.validation';
 const BASE_ENV = {
   DATABASE_URL: 'postgres://user:pass@localhost:5432/logfood',
   JWT_SECRET: 'a'.repeat(32),
+  TENANT_SLUG: 'la-cumbre',
 };
 
 function validate(extra: Record<string, string> = {}) {
@@ -106,5 +107,49 @@ describe('envValidationSchema — feature flags', () => {
   it('acepta FEATURE_RECIPES=true sin ningún otro flag encendido', () => {
     const { error } = validate({ FEATURE_RECIPES: 'true' });
     expect(error).toBeUndefined();
+  });
+});
+
+describe('envValidationSchema — TENANT_SLUG', () => {
+  // Env requerido sin TENANT_SLUG, para poder probar también el caso "ausente"
+  // (BASE_ENV de arriba ya lo trae puesto).
+  const REQUIRED_ENV = {
+    DATABASE_URL: 'postgres://user:pass@localhost:5432/logfood',
+    JWT_SECRET: 'a'.repeat(32),
+  };
+
+  function validateSlug(tenantSlug?: string) {
+    const env = tenantSlug === undefined ? REQUIRED_ENV : { ...REQUIRED_ENV, TENANT_SLUG: tenantSlug };
+    return envValidationSchema.validate(env, { abortEarly: false, allowUnknown: true });
+  }
+
+  it('acepta un slug válido en kebab-case', () => {
+    const { error } = validateSlug('la-cumbre');
+    expect(error).toBeUndefined();
+  });
+
+  it('rechaza un slug con mayúsculas', () => {
+    const { error } = validateSlug('La-Cumbre');
+    expect(error?.message).toMatch(/TENANT_SLUG debe ser kebab-case/);
+  });
+
+  it('rechaza un slug con guion bajo', () => {
+    const { error } = validateSlug('la_cumbre');
+    expect(error?.message).toMatch(/TENANT_SLUG debe ser kebab-case/);
+  });
+
+  it('rechaza un slug que empieza con un número', () => {
+    const { error } = validateSlug('1cumbre');
+    expect(error?.message).toMatch(/TENANT_SLUG debe ser kebab-case/);
+  });
+
+  it('rechaza un slug demasiado largo (más de 20 caracteres)', () => {
+    const { error } = validateSlug('a'.repeat(21));
+    expect(error?.message).toMatch(/TENANT_SLUG debe ser kebab-case/);
+  });
+
+  it('rechaza cuando TENANT_SLUG está ausente', () => {
+    const { error } = validateSlug(undefined);
+    expect(error?.message).toMatch(/TENANT_SLUG es obligatoria/);
   });
 });

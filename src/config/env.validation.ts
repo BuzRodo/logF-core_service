@@ -54,6 +54,21 @@ function validateFeatureDependencies(value: Record<string, boolean>, helpers: Jo
 
 export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string().required(),
+  // Identifica la base a la que corresponde este proceso (ver
+  // docs/adr/0001-multi-tenancy-base-por-cliente.md): kebab-case porque de acá se
+  // derivan subdominios (DNS no admite `_`), y con tope de 20 caracteres porque el
+  // slug también compone nombres de base/rol de Postgres y el alias de red del
+  // contenedor. Inmutable una vez asignado: no se deriva del nombre comercial del
+  // cliente porque ese sí puede cambiar.
+  TENANT_SLUG: Joi.string()
+    .pattern(/^[a-z][a-z0-9-]{1,19}$/)
+    .required()
+    .messages({
+      'string.pattern.base':
+        'TENANT_SLUG debe ser kebab-case, empezar con una letra minúscula y medir entre 2 y 20 caracteres (a-z, 0-9, guiones)',
+      'string.empty': 'TENANT_SLUG es obligatoria',
+      'any.required': 'TENANT_SLUG es obligatoria',
+    }),
   JWT_SECRET: Joi.string().min(16).required(),
   JWT_ACCESS_EXPIRES: Joi.string().default('15m'),
   JWT_REFRESH_EXPIRES: Joi.string().default('7d'),

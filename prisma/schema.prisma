@@ -7,6 +7,24 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── Tenant ───────────────────────────────────────────────────────────────────
+
+/// Identidad de la base: exactamente UNA fila por base de datos.
+/// NO es un discriminador multi-tenant — cada cliente vive en su propia base
+/// Postgres, así que ningún otro modelo lleva tenantId. La fila única se fuerza con
+/// un CHECK (id = 1) agregado a mano en la migración `tenant_identity`, porque
+/// Prisma no puede expresar "singleton" en el schema.
+/// Ver docs/adr/0001-multi-tenancy-base-por-cliente.md.
+model Tenant {
+  id        Int      @id @default(1)
+  slug      String   @unique
+  legalName String
+  taxId     String?
+  timezone  String   @default("America/Montevideo")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 enum Unit {
